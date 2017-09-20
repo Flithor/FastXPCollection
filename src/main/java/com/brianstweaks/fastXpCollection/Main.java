@@ -14,13 +14,14 @@ import net.minecraftforge.fml.common.network.simpleimpl.SimpleNetworkWrapper;
 @Mod(modid = Main.MODID, version = Main.VERSION)
 public class Main
 {
-    public static final String MODID = "FastXPCollection";
+    public static final String MODID = "fastxpcollection";
     public static final String VERSION = "1.0";
     
     public static SimpleNetworkWrapper network;
     
     public static boolean fastXpPickup;
     public static boolean opDirt;
+    public static boolean silkSpawners;
     
     @EventHandler
 	public void preInit(FMLPreInitializationEvent event)  
@@ -34,6 +35,7 @@ public class Main
     	config.load();
     	
     	fastXpPickup = config.getBoolean("Fast XP Collection", "World", true, "Causes XP orbs to be instantly absorbed by players, to pick up XP at vanilla speed set to false.");
+    	silkSpawners = config.getBoolean("Silk Spawners", "World", true, "Allows you to harvest mob spawners using a diamond silk touch pickaxe.");
     	opDirt = config.getBoolean("OP Dirt", "World", false, "You probably don't want this enabled.");
     	
     	config.save();
