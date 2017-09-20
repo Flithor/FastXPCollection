@@ -111,8 +111,6 @@ public class Event
 							ItemStack newBlock = new ItemStack(block, 1);
 							newBlock.setStackDisplayName(tag.getCompoundTag("SpawnData").getString("id"));
 							
-							player.sendMessage(new TextComponentString(tag.toString()));
-							
 							player.world.spawnEntity(new EntityItem(player.world, event.getPos().getX(), event.getPos().getY(), event.getPos().getZ(), newBlock));
 						
 							event.setExpToDrop(0);
