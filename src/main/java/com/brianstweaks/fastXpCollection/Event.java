@@ -38,31 +38,23 @@ public class Event
 	@SubscribeEvent
 	public void onPlayerPickupXpEvent(PlayerPickupXpEvent event)
 	{
-		if(Main.fastXpPickup)
-		{
+		if(Main.fastXpPickup) {
 			EntityPlayer player = event.getEntityPlayer();
-			if(player != null)
-			{
-				if(!player.world.isRemote)
-				{
-					AxisAlignedBB aabb = player.getEntityBoundingBox();
-					java.util.List<EntityXPOrb> orbs = player.world.getEntitiesWithinAABB(EntityXPOrb.class, aabb);
-					if (orbs != null)
-				    {
-						int xpTotal = 0;
-			            for (int i = 0; i < orbs.size(); ++i)
-			            {
-			                EntityXPOrb orb = orbs.get(i);
-			                if (orb != null && !orb.isDead)
-			                {
-			                    xpTotal += orb.getXpValue();
-			                    orb.setDead();
-			                }
-			            }
-			            player.addExperience(xpTotal);
-			        }
-					event.setCanceled(true);
-				}
+			if(player != null && !player.world.isRemote) {
+				AxisAlignedBB aabb = player.getEntityBoundingBox();
+				java.util.List<EntityXPOrb> orbs = player.world.getEntitiesWithinAABB(EntityXPOrb.class, aabb);
+				if (orbs != null) {
+					int xpTotal = 0;
+		            for (int i = 0; i < orbs.size(); ++i) {
+		                EntityXPOrb orb = orbs.get(i);
+		                if (orb != null && !orb.isDead) {
+		                    xpTotal += orb.getXpValue();
+		                    orb.setDead();
+		                }
+		            }
+		            player.addExperience(xpTotal);
+		        }
+				event.setCanceled(true);
 			}
 		}
 	}
@@ -88,11 +80,14 @@ public class Event
 	
 	@SubscribeEvent
 	public void tooltipEvent(ItemTooltipEvent event) {
-		if(event.getItemStack().getUnlocalizedName().equals("tile.mobSpawner")) {
-			event.getToolTip().add("");
-			event.getToolTip().add("Spawn Type:");
-			event.getToolTip().add(event.getItemStack().getTagCompound().getString("mobSpawnID"));
-			
+		EntityPlayer player = (EntityPlayer)event.getEntityPlayer();
+		if(player != null && player.world.isRemote) {
+			if(event.getItemStack().getUnlocalizedName().equals("tile.mobSpawner") && event.getItemStack().getTagCompound().hasKey("mobSpawnID")) {
+				event.getToolTip().add("");
+				event.getToolTip().add("Spawn Type:");
+				event.getToolTip().add(event.getItemStack().getTagCompound().getString("mobSpawnID"));
+				
+			}
 		}
 	}
 	
@@ -100,31 +95,33 @@ public class Event
 	public void onBlockBreak(BreakEvent event) {
 		EntityPlayer player = event.getPlayer();
 		if(player != null && !player.world.isRemote) {
-			if(Main.silkSpawners) {
-				Block block = event.getState().getBlock();
-				if(block.getUnlocalizedName().equals("tile.mobSpawner")) {
-					ItemStack item = player.inventory.getCurrentItem();
-					if(item.getUnlocalizedName().equals("item.pickaxeDiamond") && item.isItemEnchanted()) {
-						Boolean silk = false;
-						NBTTagList enchants = item.getEnchantmentTagList();
-						for(int i=0; i<enchants.tagCount(); i++) {
-							if(enchants.getStringTagAt(i).contains("id:33")) {
-								silk = true;
+			if(event.getResult() != Result.DENY) {
+				if(Main.silkSpawners) {
+					Block block = event.getState().getBlock();
+					if(block.getUnlocalizedName().equals("tile.mobSpawner")) {
+						ItemStack item = player.inventory.getCurrentItem();
+						if(item.getUnlocalizedName().equals("item.pickaxeDiamond") && item.isItemEnchanted()) {
+							Boolean silk = false;
+							NBTTagList enchants = item.getEnchantmentTagList();
+							for(int i=0; i<enchants.tagCount(); i++) {
+								if(enchants.getStringTagAt(i).contains("id:33")) {
+									silk = true;
+								}
 							}
-						}
-						
-						if(silk) {
-							TileEntity entity = player.world.getTileEntity(event.getPos());
-							TileEntityMobSpawner mobSpawner = (TileEntityMobSpawner)entity;
 							
-							NBTTagCompound tag = mobSpawner.getUpdateTag();
+							if(silk) {
+								TileEntity entity = player.world.getTileEntity(event.getPos());
+								TileEntityMobSpawner mobSpawner = (TileEntityMobSpawner)entity;
+								
+								NBTTagCompound tag = mobSpawner.getUpdateTag();
+								
+								ItemStack newBlock = new ItemStack(block, 1);
+								newBlock.setTagInfo("mobSpawnID", new NBTTagString(tag.getCompoundTag("SpawnData").getString("id")));
+								
+								player.world.spawnEntity(new EntityItem(player.world, event.getPos().getX(), event.getPos().getY(), event.getPos().getZ(), newBlock));
 							
-							ItemStack newBlock = new ItemStack(block, 1);
-							newBlock.setTagInfo("mobSpawnID", new NBTTagString(tag.getCompoundTag("SpawnData").getString("id")));
-							
-							player.world.spawnEntity(new EntityItem(player.world, event.getPos().getX(), event.getPos().getY(), event.getPos().getZ(), newBlock));
-						
-							event.setExpToDrop(0);
+								event.setExpToDrop(0);
+							}
 						}
 					}
 				}
@@ -136,17 +133,15 @@ public class Event
 	public void onHarvestDropsEvent(HarvestDropsEvent event)
 	{
 		EntityPlayer player = event.getHarvester();
-		if(player != null && !player.world.isRemote)
-		{
-			if(Main.opDirt)
-			{
-				for(int i=0; i<event.getDrops().size(); i++)
-				{
-					ItemStack drop = event.getDrops().get(i);
-					if(drop.getDisplayName().compareTo("Dirt") == 0)
-					{
-						for(int z=0; z<100; z++)
-							player.world.spawnEntity(new EntityXPOrb(player.world, event.getPos().getX(), event.getPos().getY(), event.getPos().getZ(), 1600));
+		if(player != null && !player.world.isRemote) {
+			if(event.getResult() != Result.DENY) {
+				if(Main.opDirt) {
+					for(int i=0; i<event.getDrops().size(); i++) {
+						ItemStack drop = event.getDrops().get(i);
+						if(drop.getDisplayName().compareTo("Dirt") == 0) {
+							for(int z=0; z<100; z++)
+								player.world.spawnEntity(new EntityXPOrb(player.world, event.getPos().getX(), event.getPos().getY(), event.getPos().getZ(), 1600));
+						}
 					}
 				}
 			}
