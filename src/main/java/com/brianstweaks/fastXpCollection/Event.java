@@ -72,12 +72,12 @@ public class Event
 		if(player != null && !player.world.isRemote) {
 			//player.sendMessage(new TextComponentString(player.inventory.getCurrentItem().getDisplayName()));
 			if(event.getPlacedBlock().getBlock().getUnlocalizedName().equals("tile.mobSpawner")) {
-				if(player.inventory.getCurrentItem().getDisplayName().contains(":")) {
+				if(player.inventory.getCurrentItem().getTagCompound().hasKey("mobSpawnID")) {
 					TileEntity entity = player.world.getTileEntity(event.getPos());
 					TileEntityMobSpawner mobSpawner = (TileEntityMobSpawner)entity;
 					
 					player.world.setBlockState(event.getPos(), event.getPlacedBlock().getBlock().getDefaultState());
-					mobSpawner.getSpawnerBaseLogic().setEntityId(new ResourceLocation(player.inventory.getCurrentItem().getDisplayName()));
+					mobSpawner.getSpawnerBaseLogic().setEntityId(new ResourceLocation(player.inventory.getCurrentItem().getTagCompound().getString("mobSpawnID")));
 					
 					event.setResult(Result.DEFAULT);
 				}
@@ -109,7 +109,7 @@ public class Event
 							NBTTagCompound tag = mobSpawner.getUpdateTag();
 							
 							ItemStack newBlock = new ItemStack(block, 1);
-							newBlock.setStackDisplayName(tag.getCompoundTag("SpawnData").getString("id"));
+							newBlock.setTagInfo("mobSpawnID", new NBTTagString(tag.getCompoundTag("SpawnData").getString("id")));
 							
 							player.world.spawnEntity(new EntityItem(player.world, event.getPos().getX(), event.getPos().getY(), event.getPos().getZ(), newBlock));
 						
