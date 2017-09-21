@@ -31,6 +31,7 @@ import net.minecraftforge.event.entity.player.*;
 import net.minecraftforge.event.world.BlockEvent.*;
 import net.minecraftforge.fml.common.eventhandler.Event.Result;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.registry.GameRegistry;
 
 public class Event 
 {
@@ -70,18 +71,28 @@ public class Event
 	public void onBlockPlace(PlaceEvent event) {
 		EntityPlayer player = event.getPlayer();
 		if(player != null && !player.world.isRemote) {
-			//player.sendMessage(new TextComponentString(player.inventory.getCurrentItem().getDisplayName()));
-			if(event.getPlacedBlock().getBlock().getUnlocalizedName().equals("tile.mobSpawner")) {
-				if(player.inventory.getCurrentItem().getTagCompound().hasKey("mobSpawnID")) {
-					TileEntity entity = player.world.getTileEntity(event.getPos());
-					TileEntityMobSpawner mobSpawner = (TileEntityMobSpawner)entity;
-					
-					player.world.setBlockState(event.getPos(), event.getPlacedBlock().getBlock().getDefaultState());
-					mobSpawner.getSpawnerBaseLogic().setEntityId(new ResourceLocation(player.inventory.getCurrentItem().getTagCompound().getString("mobSpawnID")));
-					
-					event.setResult(Result.DEFAULT);
+			if(event.getResult() != Result.DENY) {
+				//player.sendMessage(new TextComponentString(player.inventory.getCurrentItem().getDisplayName()));
+				if(event.getPlacedBlock().getBlock().getUnlocalizedName().equals("tile.mobSpawner")) {
+					if(player.inventory.getCurrentItem().getTagCompound().hasKey("mobSpawnID")) {
+						TileEntity entity = player.world.getTileEntity(event.getPos());
+						TileEntityMobSpawner mobSpawner = (TileEntityMobSpawner)entity;
+						
+						player.world.setBlockState(event.getPos(), event.getPlacedBlock().getBlock().getDefaultState());
+						mobSpawner.getSpawnerBaseLogic().setEntityId(new ResourceLocation(player.inventory.getCurrentItem().getTagCompound().getString("mobSpawnID")));
+					}
 				}
 			}
+		}
+	}
+	
+	@SubscribeEvent
+	public void tooltipEvent(ItemTooltipEvent event) {
+		if(event.getItemStack().getUnlocalizedName().equals("tile.mobSpawner")) {
+			event.getToolTip().add("");
+			event.getToolTip().add("Spawn Type:");
+			event.getToolTip().add(event.getItemStack().getTagCompound().getString("mobSpawnID"));
+			
 		}
 	}
 	
