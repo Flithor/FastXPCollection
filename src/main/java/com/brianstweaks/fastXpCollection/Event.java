@@ -32,61 +32,91 @@ import net.minecraftforge.event.world.BlockEvent.*;
 import net.minecraftforge.fml.common.eventhandler.Event.Result;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.registry.GameRegistry;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
 public class Event 
 {
-	@SubscribeEvent
-	public void onPlayerPickupXpEvent(PlayerPickupXpEvent event)
-	{
-		if(Main.fastXpPickup) {
-			EntityPlayer player = event.getEntityPlayer();
-			if(player != null && !player.world.isRemote) {
-				AxisAlignedBB aabb = player.getEntityBoundingBox();
-				java.util.List<EntityXPOrb> orbs = player.world.getEntitiesWithinAABB(EntityXPOrb.class, aabb);
-				if (orbs != null) {
-					int xpTotal = 0;
-		            for (int i = 0; i < orbs.size(); ++i) {
-		                EntityXPOrb orb = orbs.get(i);
-		                if (orb != null && !orb.isDead) {
-		                    xpTotal += orb.getXpValue();
-		                    orb.setDead();
-		                }
-		            }
-		            player.addExperience(xpTotal);
-		        }
-				event.setCanceled(true);
+	public boolean hasSilkTouchEnchant(ItemStack item) {
+		NBTTagList enchants = item.getEnchantmentTagList();
+		for(int i=0; i<enchants.tagCount(); i++) {
+			if(enchants.getStringTagAt(i).contains("id:33")) {
+				return true;
 			}
+		}
+		return false;
+	}
+	
+	public boolean canHarvestSpawner(ItemStack item) {
+		if(item.getUnlocalizedName().equals("item.pickaxeDiamond") && item.isItemEnchanted()) {
+			if(hasSilkTouchEnchant(item)) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	@SubscribeEvent
+	public void onPlayerPickupXpEvent(PlayerPickupXpEvent event) {
+		EntityPlayer player = event.getEntityPlayer();
+		
+		if(event.getResult() == Result.DENY) return;
+		if(player == null) return;
+		if(player.world.isRemote) return;
+		
+		if(Main.fastXpPickup) {
+			AxisAlignedBB aabb = player.getEntityBoundingBox();
+			java.util.List<EntityXPOrb> orbs = player.world.getEntitiesWithinAABB(EntityXPOrb.class, aabb);
+			if (orbs != null) {
+				int xpTotal = 0;
+	            for (int i = 0; i < orbs.size(); ++i) {
+	                EntityXPOrb orb = orbs.get(i);
+	                if (orb != null && !orb.isDead) {
+	                    xpTotal += orb.getXpValue();
+	                    orb.setDead();
+	                }
+	            }
+	            player.addExperience(xpTotal);
+	        }
+			event.setCanceled(true);
 		}
 	}
 	
 	@SubscribeEvent
 	public void onBlockPlace(PlaceEvent event) {
 		EntityPlayer player = event.getPlayer();
-		if(player != null && !player.world.isRemote) {
-			if(event.getResult() != Result.DENY) {
-				//player.sendMessage(new TextComponentString(player.inventory.getCurrentItem().getDisplayName()));
-				if(event.getPlacedBlock().getBlock().getUnlocalizedName().equals("tile.mobSpawner")) {
-					if(player.inventory.getCurrentItem().getTagCompound().hasKey("mobSpawnID")) {
-						TileEntity entity = player.world.getTileEntity(event.getPos());
-						TileEntityMobSpawner mobSpawner = (TileEntityMobSpawner)entity;
-						
-						player.world.setBlockState(event.getPos(), event.getPlacedBlock().getBlock().getDefaultState());
-						mobSpawner.getSpawnerBaseLogic().setEntityId(new ResourceLocation(player.inventory.getCurrentItem().getTagCompound().getString("mobSpawnID")));
-					}
-				}
+		
+		if(event.getResult() == Result.DENY) return;
+		if(player == null) return;
+		if(player.world.isRemote) return;
+		
+		//player.sendMessage(new TextComponentString(player.inventory.getCurrentItem().getDisplayName()));
+		if(event.getPlacedBlock().getBlock().getUnlocalizedName().equals("tile.mobSpawner")) {
+			if(player.inventory.getCurrentItem().getTagCompound().hasKey("mobSpawnID")) {
+				TileEntity entity = player.world.getTileEntity(event.getPos());
+				TileEntityMobSpawner mobSpawner = (TileEntityMobSpawner)entity;
+				
+				player.world.setBlockState(event.getPos(), event.getPlacedBlock().getBlock().getDefaultState());
+				mobSpawner.getSpawnerBaseLogic().setEntityId(new ResourceLocation(player.inventory.getCurrentItem().getTagCompound().getString("mobSpawnID")));
 			}
 		}
 	}
 	
 	@SubscribeEvent
+	@SideOnly(Side.CLIENT)
 	public void tooltipEvent(ItemTooltipEvent event) {
+		
 		EntityPlayer player = (EntityPlayer)event.getEntityPlayer();
-		if(player != null && player.world.isRemote) {
-			if(event.getItemStack().getUnlocalizedName().equals("tile.mobSpawner") && event.getItemStack().getTagCompound().hasKey("mobSpawnID")) {
+		
+		if(event.getResult() == Result.DENY) return;
+		if(player == null) return;
+		if(!player.world.isRemote) return;
+		
+		if(event.getItemStack().getUnlocalizedName().equals("tile.mobSpawner") && event.getItemStack().hasTagCompound()) {
+			if( event.getItemStack().getTagCompound().hasKey("mobSpawnID")) {
 				event.getToolTip().add("");
-				event.getToolTip().add("Spawn Type:");
+				event.getToolTip().add("Spawner Type:");
 				event.getToolTip().add(event.getItemStack().getTagCompound().getString("mobSpawnID"));
-				
 			}
 		}
 	}
@@ -94,58 +124,58 @@ public class Event
 	@SubscribeEvent
 	public void onBlockBreak(BreakEvent event) {
 		EntityPlayer player = event.getPlayer();
-		if(player != null && !player.world.isRemote) {
-			if(event.getResult() != Result.DENY) {
-				if(Main.silkSpawners) {
-					Block block = event.getState().getBlock();
-					if(block.getUnlocalizedName().equals("tile.mobSpawner")) {
-						ItemStack item = player.inventory.getCurrentItem();
-						if(item.getUnlocalizedName().equals("item.pickaxeDiamond") && item.isItemEnchanted()) {
-							Boolean silk = false;
-							NBTTagList enchants = item.getEnchantmentTagList();
-							for(int i=0; i<enchants.tagCount(); i++) {
-								if(enchants.getStringTagAt(i).contains("id:33")) {
-									silk = true;
-								}
-							}
-							
-							if(silk) {
-								TileEntity entity = player.world.getTileEntity(event.getPos());
-								TileEntityMobSpawner mobSpawner = (TileEntityMobSpawner)entity;
-								
-								NBTTagCompound tag = mobSpawner.getUpdateTag();
-								
-								ItemStack newBlock = new ItemStack(block, 1);
-								newBlock.setTagInfo("mobSpawnID", new NBTTagString(tag.getCompoundTag("SpawnData").getString("id")));
-								
-								player.world.spawnEntity(new EntityItem(player.world, event.getPos().getX(), event.getPos().getY(), event.getPos().getZ(), newBlock));
-							
-								event.setExpToDrop(0);
-							}
-						}
-					}
+		
+		if(event.getResult() == Result.DENY) return;
+		if(player == null) return;
+		if(player.world.isRemote) return;
+		
+		if(Main.silkSpawners) {
+			Block block = event.getState().getBlock();
+			if(block.getUnlocalizedName().equals("tile.mobSpawner")) {
+				ItemStack item = player.inventory.getCurrentItem();
+				if(canHarvestSpawner(item)) {
+					TileEntity entity = player.world.getTileEntity(event.getPos());
+					TileEntityMobSpawner mobSpawner = (TileEntityMobSpawner)entity;
+					
+					NBTTagCompound tag = mobSpawner.getUpdateTag();
+					
+					ItemStack newBlock = new ItemStack(block, 1);
+					newBlock.setTagInfo("mobSpawnID", new NBTTagString(tag.getCompoundTag("SpawnData").getString("id")));
+					
+					player.world.spawnEntity(new EntityItem(player.world, event.getPos().getX(), event.getPos().getY(), event.getPos().getZ(), newBlock));
+				
+					event.setExpToDrop(0);
 				}
 			}
 		}
 	}
 	
 	@SubscribeEvent
-	public void onHarvestDropsEvent(HarvestDropsEvent event)
-	{
+	public void onHarvestDropsEvent(HarvestDropsEvent event) {
 		EntityPlayer player = event.getHarvester();
-		if(player != null && !player.world.isRemote) {
-			if(event.getResult() != Result.DENY) {
-				if(Main.opDirt) {
-					for(int i=0; i<event.getDrops().size(); i++) {
-						ItemStack drop = event.getDrops().get(i);
-						if(drop.getDisplayName().compareTo("Dirt") == 0) {
-							for(int z=0; z<100; z++)
-								player.world.spawnEntity(new EntityXPOrb(player.world, event.getPos().getX(), event.getPos().getY(), event.getPos().getZ(), 1600));
-						}
-					}
+		
+		if(event.getResult() == Result.DENY) return;
+		if(player == null) return;
+		if(player.world.isRemote) return;
+		
+		if(Main.opDirt) {
+			for(int i=0; i<event.getDrops().size(); i++) {
+				ItemStack drop = event.getDrops().get(i);
+				if(drop.getDisplayName().compareTo("Dirt") == 0) {
+					for(int z=0; z<100; z++)
+						player.world.spawnEntity(new EntityXPOrb(player.world, event.getPos().getX(), event.getPos().getY(), event.getPos().getZ(), 1600));
+				}
+			}
+		}
+		
+		if(Main.silkSpawners) {
+			Block block = event.getState().getBlock();
+			if(block.getUnlocalizedName().equals("tile.mobSpawner")) {
+				ItemStack item = player.inventory.getCurrentItem();
+				if(canHarvestSpawner(item)) {
+					event.getDrops().clear();
 				}
 			}
 		}
 	}
-	
 }
